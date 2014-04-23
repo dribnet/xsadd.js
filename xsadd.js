@@ -4677,7 +4677,7 @@ function module_call_xsadd_init_by_array(xsaddPtr, array) {
   // TODO: free dataPtr?
 }
 
-function XSAdd() {
+function XSadd() {
   var dataPtr = Module._malloc(16);
   var o = {
     init: function(seed) {
