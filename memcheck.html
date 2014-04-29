@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <script src="xsadd.js"></script>
+  <!-- note: failing just after 262144 currently -->
+  <script>
+    function memory_churn(array) {
+      var buf = Module._malloc(8);
+      Module._free(buf);
+    }
+    var sum = 0;
+    var loop  = 1;
+    while(true) {
+      for(var i=0; i<loop; i++) {
+        memory_churn();
+        sum = sum + 1;
+      }
+      console.log("Made it to sum: " + sum);
+      loop = loop * 2;
+    }
+  </script>
+</html>
