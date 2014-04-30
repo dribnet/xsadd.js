@@ -44,7 +44,6 @@ function XSadd() {
       xsadd_init(dataPtr, seed);
     },
     init_by_array: function(array) {
-      console.log("init_by_array", array)
       module_call_xsadd_init_by_array(dataPtr, array);
     },
     seed: function() {

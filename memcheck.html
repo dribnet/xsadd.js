@@ -7,11 +7,15 @@
       var buf = Module._malloc(8);
       Module._free(buf);
     }
+    var xsa = XSadd();
     var sum = 0;
     var loop  = 1;
     while(true) {
       for(var i=0; i<loop; i++) {
         memory_churn();
+        xsa.seed(sum, 0xb, 0xc, 0xd);
+        var abc = XSadd(sum);
+        abc.free();
         sum = sum + 1;
       }
       console.log("Made it to sum: " + sum);
