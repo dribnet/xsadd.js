@@ -10,15 +10,15 @@
     var xsa = XSadd();
     var sum = 0;
     var loop  = 1;
+    var startTime = Date.now();
     while(true) {
       for(var i=0; i<loop; i++) {
         memory_churn();
         xsa.seed(sum, 0xb, 0xc, 0xd);
         var abc = XSadd(sum);
-        abc.free();
         sum = sum + 1;
       }
-      console.log("Made it to sum: " + sum);
+      console.log("Made it to sum: " + sum + " (" + ((Date.now() - startTime) / 1000.0) + " s)");
       loop = loop * 2;
     }
   </script>

@@ -1,50 +1,77 @@
-
 // this gets concatenated to the end of the compiled output
-xsadd_init = Module.cwrap(
-  'xsadd_init', 'number', ['number', 'number', 'number']
-);
 
-xsadd_uint32 = Module.cwrap(
-  'do_xsadd_uint32', 'number', ['number']
-);
+var XSadd = function() {
+  xsadd_init = Module.cwrap(
+    'xsadd_init', 'number', ['number', 'number', 'number']
+  );
 
-xsadd_double = Module.cwrap(
-  'do_xsadd_double', 'number', ['number']
-);
+  xsadd_uint32 = Module.cwrap(
+    'do_xsadd_uint32', 'number', ['number']
+  );
 
-xsadd_init_by_array =  Module.cwrap(
-  'xsadd_init_by_array', 'number', ['number', 'number', 'number']
-);
+  xsadd_double = Module.cwrap(
+    'do_xsadd_double', 'number', ['number']
+  );
 
+  xsadd_init_by_array =  Module.cwrap(
+    'xsadd_init_by_array', 'number', ['number', 'number', 'number']
+  );
 
-function module_call_xsadd_init_by_array(xsaddPtr, array) {
-  // Create example data to test float_multiply_array
-  var data = new Uint32Array(array);
+  var xsadd_call_wrapped_function = function(state, f, args) {
+    if(state.length != 4)
+      return;
+    // Create Uint32Array version of state
+    var data = new Uint32Array(state);
+    // NODE: we could do this malloc once globally and never free (reuse), but didn't measure faster.
+    // Get data byte size, allocate memory on Emscripten heap, and get pointer
+    var nDataBytes = data.length * data.BYTES_PER_ELEMENT;
+    var dataPtr = Module._malloc(nDataBytes);
+    // Copy data to Emscripten heap (directly accessed from Module.HEAPU8)
+    var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, nDataBytes);
+    dataHeap.set(new Uint8Array(data.buffer));
+    // now build new args array
+    var argsCopy = [dataHeap.byteOffset].concat(args);
+    // Call function and get result
+    var result = f.apply(null, argsCopy);
+    var newstate = new Uint32Array(dataHeap.buffer, dataHeap.byteOffset, data.length);
+    // copy result back to state
+    state.length = 0;
+    Array.prototype.push.apply(state, newstate);
+    // Free memory
+    Module._free(dataHeap.byteOffset);
+    return result;
+  }
 
-  // Get data byte size, allocate memory on Emscripten heap, and get pointer
-  var nDataBytes = data.length * data.BYTES_PER_ELEMENT;
-  var dataPtr = Module._malloc(nDataBytes);
+  var xsadd_init_by_array_wrapper = function(state, array) {
+    // Create example data to test float_multiply_array
+    var data = new Uint32Array(array);
 
-  // Copy data to Emscripten heap (directly accessed from Module.HEAPU8)
-  var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, nDataBytes);
-  dataHeap.set(new Uint8Array(data.buffer));
+    // Get data byte size, allocate memory on Emscripten heap, and get pointer
+    var nDataBytes = data.length * data.BYTES_PER_ELEMENT;
+    var dataPtr = Module._malloc(nDataBytes);
 
-  // Call function and get result
-  xsadd_init_by_array(xsaddPtr, dataHeap.byteOffset, data.length);
+    // Copy data to Emscripten heap (directly accessed from Module.HEAPU8)
+    var dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, nDataBytes);
+    dataHeap.set(new Uint8Array(data.buffer));
 
-  // Free memory
-  Module._free(dataHeap.byteOffset);
-  // TODO: free dataPtr?
-}
+    // Call function and get result
+    // xsadd_init_by_array(xsaddPtr, dataHeap.byteOffset, data.length);
+    var retval = xsadd_call_wrapped_function(state, xsadd_init_by_array, [dataHeap.byteOffset, data.length]);
 
-function XSadd() {
-  var dataPtr = Module._malloc(16);
+    // Free memory
+    Module._free(dataHeap.byteOffset);
+    // TODO: free dataPtr?
+    return retval;
+  }
+
+  var state = [0, 0, 0, 0];
   var o = {
+    state: state,
     init: function(seed) {
-      xsadd_init(dataPtr, seed);
+      xsadd_call_wrapped_function(state, xsadd_init, [seed]);
     },
     init_by_array: function(array) {
-      module_call_xsadd_init_by_array(dataPtr, array);
+      xsadd_init_by_array_wrapper(state, array);
     },
     seed: function() {
       // now different flavors of init
@@ -73,19 +100,12 @@ function XSadd() {
       }
     },
     uint32: function() {
-      return ((xsadd_uint32(dataPtr) + 0x100000000) % 0x100000000)
+      return ((xsadd_call_wrapped_function(state, xsadd_uint32, []) + 0x100000000) % 0x100000000);
     },
     double: function() {
-      return xsadd_double(dataPtr);
-    },
-    free: function() {
-      if(dataPtr != 0) {
-        Module._free(dataPtr);
-        dataPtr = 0;
-      }
+      return xsadd_call_wrapped_function(state, xsadd_double, []);
     }
   }
   o.seed.apply(this, arguments);
   return o;
-  // xsadd_init(dataPtr, seed)
 }
